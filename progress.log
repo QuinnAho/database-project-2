@@ -1,0 +1,21 @@
+2025-01-24 - Initial repository review
+- Checked git status (clean, tracking origin/main).
+- Listed repo structure (backend, frontend, database, README).
+- Read README plus backend/frontend sources to understand existing JWT tutorial implementation.
+- Examined database/schema.sql to verify it already models the home-cleaning domain, though it is unused by the current app.
+
+2025-01-24 - Planning
+- Analyzed the course project description to extract all workflow, dashboard, and submission requirements.
+- Created TODO.md capturing design, backend, frontend, analytics, and documentation tasks needed to align the project with the brief.
+
+2025-01-24 - Backend architecture overhaul
+- Extended database/schema.sql to capture rejection reasons for service requests.
+- Replaced the previous JWT tutorial server with a modular Express API that reads configuration from environment variables and uses a MySQL connection pool.
+- Added authentication endpoints for clients/admins, client request submission/listing/rejection flows, quote management (creation, negotiation, acceptance), order completion with bill generation, bill payment/dispute/revision flows, and analytics endpoints that implement all required dashboard queries.
+- Introduced backend/.env.example, refactored package.json scripts/dependencies, and recorded the SQL queries separately in sql.txt as required by the assignment.
+
+2025-01-24 - Frontend rebuild
+- Removed the JWT tutorial UI and replaced it with a single-page React experience that exposes both client and admin workspaces side-by-side.
+- Added ClientPortal with registration/login, service request submission (including optional photo URLs), request history, and bill payment/dispute forms tied to the new backend API.
+- Added AdminPortal with authentication, request triage, quote creation workflow, accepted quote filtering by month, and live analytics summaries backed by the analytics endpoints.
+- Refreshed styling with a modern card-based layout, gradient background, and responsive grids (App.css/index.css) to deliver the “sleek” visual direction requested.
