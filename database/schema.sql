@@ -35,6 +35,7 @@ CREATE TABLE service_requests (
     preferred_time TIME NOT NULL,
     proposed_budget DECIMAL(10, 2) NOT NULL CHECK (proposed_budget > 0),
     special_notes TEXT,
+    rejection_reason TEXT,
     status ENUM('pending', 'quoted', 'negotiating', 'accepted', 'rejected', 'cancelled') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
