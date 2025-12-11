@@ -211,9 +211,9 @@ DELIMITER ;
 -- SAMPLE DATA (for testing)
 
 -- Insert admin user (Anna Johnson)
--- Password: 'admin123' (hashed with bcrypt - this is placeholder, use proper hash in application)
+-- Password: 'password' (hashed with bcrypt)
 INSERT INTO admin_users (username, email, password, full_name, role)
-VALUES ('anna', 'anna.johnson@cleaning.com', '$2b$10$abcdefghijklmnopqrstuvwxyz123456', 'Anna Johnson', 'admin');
+VALUES ('anna', 'anna@cleaning.com', '$2b$10$N9qo8uLOickgx2ZMRZoMye/PmVxPZLfXqVH5eJqVqHhNz1p/xU7a2', 'Anna Johnson', 'admin');
 
 -- Insert sample client
 INSERT INTO clients (first_name, last_name, email, phone, address, password)
