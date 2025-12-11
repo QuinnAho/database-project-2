@@ -1,9 +1,93 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { authenticate } = require('../middleware/auth');
 const { pool, query } = require('../config/db');
 
 const router = express.Router();
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, UPLOAD_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '');
+    const name = path.basename(file.originalname || 'photo', ext).replace(/\s+/g, '-').slice(0, 40);
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    cb(null, `${name || 'photo'}-${unique}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    files: 5,
+    fileSize: 5 * 1024 * 1024
+  },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image uploads are allowed'));
+    }
+    return cb(null, true);
+  }
+});
+
+const optionalUpload = (req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.toLowerCase().includes('multipart/form-data')) {
+    return next();
+  }
+
+  return upload.array('photos', 5)(req, res, err => {
+    if (!err) {
+      return next();
+    }
+
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'Each photo must be 5 MB or smaller' });
+      }
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ message: 'You can upload up to 5 photos per request' });
+      }
+      return res.status(400).json({ message: err.message });
+    }
+
+    return res.status(400).json({ message: err.message || 'Photo upload failed' });
+  });
+};
+
+const toArray = payload => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (typeof payload === 'string') {
+    try {
+      const parsed = JSON.parse(payload);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (error) {
+      return [payload];
+    }
+  }
+  return [];
+};
+
+const sanitizePhotoUrls = payload => {
+  return toArray(payload)
+    .map(value => (typeof value === 'string' ? value.trim() : ''))
+    .filter(Boolean)
+    .slice(0, 5);
+};
 
 const handleValidation = (req, res) => {
   const errors = validationResult(req);
@@ -16,14 +100,18 @@ const handleValidation = (req, res) => {
 router.post(
   '/',
   authenticate(['client']),
+  optionalUpload,
   [
     body('serviceAddress').trim().notEmpty(),
     body('cleaningType').isIn(['basic', 'deep cleaning', 'move-out', 'other']),
-    body('numberOfRooms').isInt({ gt: 0 }),
+    body('numberOfRooms').isInt({ gt: 0 }).toInt(),
     body('preferredDate').isISO8601(),
     body('preferredTime').matches(/^\d{2}:\d{2}(:\d{2})?$/),
-    body('proposedBudget').isFloat({ gt: 0 }),
-    body('photos').optional().isArray({ max: 5 })
+    body('proposedBudget').isFloat({ gt: 0 }).toFloat(),
+    body('photos').optional().isArray({ max: 5 }),
+    body('photos.*').optional().isString(),
+    body('photoUrls').optional().isArray({ max: 5 }),
+    body('photoUrls.*').optional().isString()
   ],
   async (req, res) => {
     const validationError = handleValidation(req, res);
@@ -36,9 +124,13 @@ router.post(
       preferredDate,
       preferredTime,
       proposedBudget,
-      specialNotes,
-      photos = []
+      specialNotes
     } = req.body;
+
+    const uploadedPhotos = Array.isArray(req.files) ? req.files.slice(0, 5) : [];
+    const manualPhotoUrls = sanitizePhotoUrls(req.body.photoUrls || req.body.photos);
+    const remainingSlots = Math.max(0, 5 - uploadedPhotos.length);
+    const manualUrls = manualPhotoUrls.slice(0, remainingSlots);
 
     const connection = await pool.getConnection();
     try {
@@ -60,13 +152,23 @@ router.post(
       );
 
       const requestId = result.insertId;
-      const photoValues = Array.isArray(photos) ? photos.slice(0, 5) : [];
-      if (photoValues.length > 0) {
+      const photosToPersist = [
+        ...uploadedPhotos.map((file, index) => ({
+          url: `/uploads/${file.filename}`,
+          order: index + 1
+        })),
+        ...manualUrls.map((url, index) => ({
+          url,
+          order: uploadedPhotos.length + index + 1
+        }))
+      ];
+
+      if (photosToPersist.length > 0) {
         await Promise.all(
-          photoValues.map((photoUrl, index) =>
+          photosToPersist.map(photo =>
             connection.execute(
               `INSERT INTO photos (request_id, photo_url, upload_order) VALUES (?, ?, ?)`,
-              [requestId, photoUrl, index + 1]
+              [requestId, photo.url, photo.order]
             )
           )
         );

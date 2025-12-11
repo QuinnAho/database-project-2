@@ -112,7 +112,7 @@ router.post(
 
     try {
       const quotes = await query(
-        `SELECT q.quote_id, sr.client_id 
+        `SELECT q.quote_id, q.request_id, sr.client_id 
          FROM quotes q 
          JOIN service_requests sr ON q.request_id = sr.request_id 
          WHERE q.quote_id = ?`,
@@ -141,7 +141,8 @@ router.post(
         ]
       );
 
-      await query('UPDATE quotes SET status = ? WHERE quote_id = ?', ['negotiating', quoteId]);
+      await query('UPDATE quotes SET status = ? WHERE quote_id = ?', ['countered', quoteId]);
+      await query('UPDATE service_requests SET status = ? WHERE request_id = ?', ['negotiating', quotes[0].request_id]);
 
       return res.json({ message: 'Negotiation added' });
     } catch (error) {

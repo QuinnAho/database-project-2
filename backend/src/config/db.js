@@ -1,6 +1,6 @@
 const mysql = require('mysql2/promise');
 
-const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET'];
+const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_NAME', 'JWT_SECRET'];
 
 requiredEnv.forEach(key => {
   if (!process.env[key]) {
@@ -11,7 +11,7 @@ requiredEnv.forEach(key => {
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+  password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: parseInt(process.env.DB_POOL_SIZE || '10', 10),

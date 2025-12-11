@@ -1,125 +1,107 @@
+# Anna Johnson Cleaning Service
 
-# Project Title
+Web application for managing Anna Johnson's home-cleaning engagements from request intake all the way through billing and analytics. The system follows the course brief: every quote and bill response is persisted, clients can upload photos, and Anna gets the dashboard queries required for submission.
 
-This project is a web application that implements JWT (JSON Web Token) based authentication. It has a simple frontend built with React and a backend built with Express and MySQL.
+## Tech stack
 
-## Prerequisites
+- **Database:** MySQL schema defined in `database/schema.sql` (ER model -> relational). Includes clients, requests, photos, quotes, negotiations, orders, bills, bill negotiations, payments, and admin users.
+- **Backend:** Node.js + Express (see `backend/`). Uses `mysql2/promise`, JWT-based auth, and Multer-powered local uploads.
+- **Frontend:** React SPA (see `frontend/`). Two workspaces:
+  - Client portal for registration/login, request submission with photo uploads, quote negotiation, and bill payment/dispute.
+  - Anna's dashboard for reviewing requests, issuing quotes, responding to negotiations, completing orders, revising bills, and running analytics.
+- **Analytics SQL:** Stored in `sql.txt` as required by the project instructions and exposed through `/api/analytics/*` endpoints.
 
-Before you begin, ensure you have met the following requirements:
-- **Node.js** (v14 or later) and npm (Node Package Manager)
-- **MySQL** (Ensure that you have MySQL installed and running)
+## Getting started
 
-## How to Run the Project
+### 1. Database
 
-Follow these steps to clone and run this project on your local machine.
-
-### Step 1: Clone the Repository
-
-First, clone this repository to your local machine.
-
-```bash
-git clone https://github.com/atahabilder1/jwt-auth-tutorial.git
-```
-
- 
-After cloning, navigate into the project directory:
-
-```bash
-cd jwt-auth-tutorial
-```
-
-### Step 2: Set Up the Backend (Express & MySQL)
-
-1. **Navigate to the `backend` directory**:
-
-   ```bash
-   cd backend
-   ```
-
-2. **Install the backend dependencies**:
-
-   ```bash
-   npm install
-   ```
-
-3. **Create the MySQL Database and Table**:
-
-   - Start your MySQL service (using XAMPP, MAMP, or MySQL Workbench).
-   - Open a MySQL client (like MySQL Workbench or the command line) and run the following SQL command to create the database and table:
-
+1. Create the schema:
    ```sql
-   CREATE DATABASE jwt_auth_db;
-
-   USE jwt_auth_db;
-
-   CREATE TABLE users (
-       id INT AUTO_INCREMENT PRIMARY KEY,
-       username VARCHAR(100) NOT NULL,
-       email VARCHAR(100) NOT NULL UNIQUE,
-       password VARCHAR(255) NOT NULL,
-       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-   );
+   SOURCE database/schema.sql;
    ```
+   This creates `home_cleaning_service` plus sample admin/client records. Update the seeded passwords with secure bcrypt hashes before deploying (e.g., `bcrypt.hashSync('admin123', 10)`).
+2. Ensure the MySQL user referenced in `.env` has permissions to read/write this database.
 
-4. **Start the backend server**:
+### 2. Backend API
 
-   ```bash
-   npm start
-   ```
+```bash
+cd backend
+npm install
+cp .env.example .env
+```
 
-   The backend will run on `http://localhost:5000`.
+Populate `.env` with your MySQL credentials, JWT secret, and optional `UPLOAD_DIR` (defaults to `backend/uploads`). Then run:
 
-### Step 3: Set Up the Frontend (React)
+```bash
+npm run dev     # watches for changes
+# or
+npm start       # production mode
+```
 
-1. **Navigate to the `frontend` directory**:
+Key routes (all under `/api`):
 
-   ```bash
-   cd ../frontend
-   ```
+- `POST /auth/clients/register` and `POST /auth/clients/login`
+- `POST /auth/admin/login`
+- `POST /requests` (multipart with up to five files), `GET /requests`, `GET /requests/admin`
+- `POST /quotes`, `/quotes/:quoteId/negotiate`, `/quotes/:quoteId/accept`, `/quotes/:quoteId/reject`
+- `POST /orders/:orderId/complete`
+- `POST /bills/:billId/pay`, `/bills/:billId/dispute`, `/bills/:billId/revise`
+- `GET /analytics/*` (eight required dashboard queries)
 
-2. **Install the frontend dependencies**:
+Uploads are saved locally (ignored via `.gitignore`) and served from `/uploads/<filename>`.
 
-   ```bash
-   npm install
-   ```
+### 3. Frontend SPA
 
-3. **Start the frontend server**:
+```bash
+cd frontend
+npm install
+```
 
-   ```bash
-   npm start
-   ```
+Set `REACT_APP_API_BASE_URL` in `frontend/.env` (defaults to `http://localhost:5000`). Then run:
 
-   The frontend will run on `http://localhost:3000`.
+```bash
+npm start
+```
 
-### Step 4: Usage
+Navigate to:
 
-1. **Access the Web Application**:
+- `http://localhost:3000/` — overview page + links to both workspaces.
+- `http://localhost:3000/client` — client experience (registration/login, request form with uploads, quote negotiation widget, bill payment/dispute).
+- `http://localhost:3000/admin` — Anna's dashboard (request triage, quote creation, negotiation tracker, order completion, bill revisions, analytics with month filter).
 
-   Open your browser and go to `http://localhost:3000`. This will load the homepage of the application.
+## Testing & demo tips
 
-2. **Registration**:
+1. Register a client, log in, and submit a request with a few photo uploads (JPG/PNG ≤ 5 MB each) plus optional external URLs.
+2. Log out, switch to the admin workspace, sign in with your seeded admin credentials, and send a quote for that request. Use the negotiation form to exchange messages.
+3. Accept the quote from the client workspace, then mark the order complete as Anna to generate a bill.
+4. Pay or dispute the bill from the client view. Revisit Anna's dashboard to revise bills or check analytics.
+5. For the required video demo, `sql.txt` already lists every analytics statement. Trigger each `/api/analytics/*` endpoint via the dashboard UI, then update the database and re-run the query, as requested in the brief.
 
-   - To create a new user, go to the **Register** page (`http://localhost:3000/register`) and fill in the registration form.
+## Repository structure
 
-3. **Login**:
+```
+database/
+  schema.sql          # relational model + sample data
 
-   - After registering, log in using the **Login** page (`http://localhost:3000/login`).
-   - On successful login, a JWT (JSON Web Token) will be generated and stored in your browser's **localStorage**.
+backend/
+  server.js           # Express app + route wiring
+  src/
+    config/db.js      # MySQL pool + helpers
+    middleware/auth.js
+    routes/*.js       # auth, requests, quotes, orders, bills, analytics
+  .env.example        # configuration template
 
-4. **Dashboard & Profile (Protected Pages)**:
+frontend/
+  src/
+    App.js, PageLayout.js, HomePage.js
+    pages/ClientPortal.js
+    pages/AdminPortal.js
+    api.js, styles.css, etc.
+  .env                # example pointing to localhost API
+```
 
-   - After logging in, you will be redirected to the **Dashboard** (`http://localhost:3000/dashboard`), a protected page that requires authentication.
-   - You can also navigate to the **Profile** page (`http://localhost:3000/profile`), which is another protected page.
+## Notes
 
-### Step 5: Logging Out
-
-To log out, click the **Logout** button on the dashboard or profile pages. This will remove the JWT token from `localStorage` and log you out.
-
-### Step 6: Troubleshooting
-
-- **MySQL Connection Issues**: Ensure that MySQL is running and your credentials (username, password, database) in `backend/server.js` are correct.
-- **Port Conflicts**: If `localhost:5000` (backend) or `localhost:3000` (frontend) is already in use, make sure to close any services occupying those ports or change the port number.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- All uploaded photos, quote negotiations, and bill negotiations are persisted to support disputes.
+- The React UI sticks to simple inputs/tables per the project rubric but covers every workflow (no manual SQL during demos).
+- Honors extensions (remote hosting, manuals) are *not* implemented per the request.
